@@ -1,0 +1,59 @@
+cabal-version:       2.4
+
+name:                histcleaner
+version:             0.1.0.0
+synopsis:            Synopsis will appear in the hackage package listing and search
+description:         The description will appear at the top of a library
+homepage:            Homepage url
+bug-reports:         issue-tracker url
+license:             BSD-3-Clause
+license-file:        License.txt
+author:              Oskar Roesler
+maintainer:          Oskar Roesler <oskar AT oskar MINUS roesler DOT de>
+category:            Hackage categories, separated by commas
+extra-doc-files:
+  README.md
+
+common common-settings
+  default-language: Haskell2010
+  ghc-options:
+    -Wall
+
+library
+  import: common-settings
+  hs-source-dirs: src
+  build-depends:
+      base
+    , base64
+    , bytestring
+    , cryptonite
+    , directory
+    , filepath
+--    , memory
+    , mtl
+    , unix
+    , utf8-string
+    , xdg-basedir
+  exposed-modules:
+    HistCleaner
+      HistCleaner.Cleaner
+      HistCleaner.Hash
+      HistCleaner.SecretStorage
+  -- other-modules:
+
+executable histcleaner
+  import: common-settings
+  hs-source-dirs: app
+  main-is: Main.hs
+  other-modules:
+    OptParse
+  build-depends:
+      base
+    , bytestring
+    , directory
+    , filepath
+    , optparse-applicative
+    , histcleaner
+  ghc-options:
+    -O
+
