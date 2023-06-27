@@ -5,13 +5,20 @@ module HistCleaner.Cleaner where
 import Control.Monad.State.Lazy
 import Crypto.Error (CryptoFailable(..))
 import Data.ByteString (ByteString)
+import Data.ByteString.Base64
 import qualified Data.ByteString.Char8 as C8
-import Data.ByteString.UTF8 (toString)
+import Data.ByteString.UTF8 (fromString, toString)
+import Data.Foldable
+import Data.List.Split
+import Data.Maybe
+import System.FilePath
 import System.Posix.Signals
+import System.Posix.Files
 import System.IO
 
 import HistCleaner.Hash
 import qualified HistCleaner.SecretStorage as St
+import HistCleaner.SecretStorage (getConfigFolder)
 
 
 data CleanResult
@@ -30,15 +37,31 @@ data CleanResult
 cleanFile :: FilePath -> IO CleanResult
 cleanFile filepath = do
   vault <- St.getSecrets
-  -- Get content of file to be cleaned
-  content <- C8.readFile filepath
+  content <- C8.readFile filepath --TODO: Don't read twice? Use vault?
+  endLines <- getEndlines filepath
   let
-    func = cleanText (C8.lines content) (St.salt vault) (St.secrets vault)
-    (resCon, rCode) = runState func CSuccess
+    contLines = C8.lines content
+    endLines' = fromMaybe [] endLines
+    reducedLines = fromMaybe contLines $ dropAlreadyChecked endLines' contLines
+    alreadyCheckedLines :: [ByteString]
+    alreadyCheckedLines =  take (length contLines - length reducedLines) contLines
+    {- TODO: At the lines split, do the recoinnassance of last checked stuff
+     - 1. Hash file paths and check if file already got checked once
+     - 2. Check file hash. If the same hash, don't do anything.
+     - 3. Try to find the location that was already checked. (Last 4 entries?)
+     - 4. Provide --force option
+     -}
+    func = cleanText reducedLines (St.salt vault) (St.secrets vault)
+    (resLines, rCode) = runState func CSuccess
   file <- openFile filepath WriteMode
   _ <- installHandler keyboardSignal (Catch $ hFlush file) Nothing
-  C8.hPutStr file $ C8.unlines resCon
+  C8.hPutStr file $ C8.unlines ( alreadyCheckedLines ++ resLines )
   hClose file
+  if rCode == CSuccess then do
+    storeEndlines filepath resLines --TODO: Maybe do split here for memory usage ?
+    pure ()
+  else do
+    pure ()
   pure rCode
 
 cleanText :: [ByteString] -> ByteString -> [ByteString] -> State CleanResult [ByteString]
@@ -57,7 +80,7 @@ cleanText text salt secrets = do
           return ( C8.unwords resLine : res )
         else do
           put rCode
-          pure []
+          return []
 
 cleanLine :: [ByteString] -> ByteString -> [ByteString] -> State CleanResult [ByteString]
 cleanLine line salt secrets = do
@@ -80,3 +103,69 @@ cleanLine line salt secrets = do
         CryptoFailed _ -> do
           put $ CHashFail $ toString word
           return []
+
+getEndlines :: FilePath -> IO (Maybe [ByteString])
+getEndlines filepath = do
+  endMarkersPath <- getEndMarkersPath
+  exists <- fileExist endMarkersPath
+  if not exists then
+    pure Nothing
+  else do
+    content <- C8.readFile endMarkersPath
+    let contLines = C8.lines content
+    if odd $ length contLines then do
+      C8.writeFile endMarkersPath ""
+      pure Nothing
+    else do
+      let endMarkers = map (\[x , y] -> (x, y)) $ chunksOf 2 contLines
+      case lookup (fromString filepath) endMarkers of
+        Just encLines ->
+          case decodeBase64 encLines of
+            Left _ ->
+              pure Nothing
+
+            Right endLines -> do
+              let restLines = filter (\x -> x /= (fromString filepath) && x /= encLines) contLines
+              C8.writeFile endMarkersPath $ C8.unlines restLines
+              pure $ Just $ C8.lines endLines
+
+        Nothing ->
+            pure Nothing
+
+-- Parse this thing into a structure
+storeEndlines :: FilePath -> [ByteString] -> IO ()
+storeEndlines filepath content = do
+  let
+    endLines = encodeBase64' . C8.unlines $ lastN' 3 content
+    endMarker = [fromString filepath, endLines]
+  endMarkersPath <- getEndMarkersPath
+  C8.appendFile endMarkersPath $ C8.unlines endMarker
+  pure ()
+
+getEndMarkersPath :: IO FilePath
+getEndMarkersPath = do
+  configFolderPath <- getConfigFolder
+  pure $ configFolderPath </> "endMarkers"
+
+dropAlreadyChecked :: [ByteString] -> [ByteString] -> Maybe [ByteString]
+dropAlreadyChecked endLines lines =
+  if length endLines < 3 then
+    Just lines
+  else
+    let
+      reducedLines = dropWhile (/= ( endLines !! 0 )) lines
+    in
+      if length reducedLines /= 0 then
+        if reducedLines !! 1 == endLines !! 1 then
+          if reducedLines !! 2 == endLines !! 2 then
+            Just $ drop 3 reducedLines
+          else
+            dropAlreadyChecked reducedLines lines
+        else
+          dropAlreadyChecked reducedLines lines
+      else
+        Nothing
+
+--TODO: Mem consumption test
+lastN' :: Int -> [a] -> [a]
+lastN' n xs = foldl' (const . drop 1) xs (drop n xs)
