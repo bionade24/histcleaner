@@ -4,13 +4,13 @@ name:                histcleaner
 version:             0.1.0.0
 synopsis:            Synopsis will appear in the hackage package listing and search
 description:         The description will appear at the top of a library
-homepage:            Homepage url
-bug-reports:         issue-tracker url
-license:             BSD-3-Clause
+homepage:            https://github.com/bionade24/histcleaner
+bug-reports:         https://github.com/bionade24/histcleaner/issues
+license:             GPL-3.0-or-later
 license-file:        License.txt
 author:              Oskar Roesler
 maintainer:          Oskar Roesler <oskar AT oskar MINUS roesler DOT de>
-category:            Hackage categories, separated by commas
+category:            Command Line
 extra-doc-files:
   README.md
 
