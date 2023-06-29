@@ -1,4 +1,4 @@
-{-# language OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module HistCleaner.Cleaner where
 
@@ -12,14 +12,13 @@ import Data.Foldable
 import Data.List.Split
 import Data.Maybe
 import System.FilePath
-import System.Posix.Signals
-import System.Posix.Files
 import System.IO
+import System.Posix.Files
+import System.Posix.Signals
 
 import HistCleaner.Hash
 import qualified HistCleaner.SecretStorage as St
 import HistCleaner.SecretStorage (getConfigFolder)
-
 
 data CleanResult
   = CSuccess
@@ -31,75 +30,77 @@ data CleanResult
 {-TODO:
  - support ~/.lesshst Syntax "eintrag
  - other special cases
- - Remember to which point a histfile has already been cleaned and resume from there
 -}
-
 cleanFile :: FilePath -> IO CleanResult
 cleanFile filepath = do
   vault <- St.getSecrets
   content <- C8.readFile filepath --TODO: Don't read twice? Use vault?
   endLines <- getEndlines filepath
-  let
-    contLines = C8.lines content
-    endLines' = fromMaybe [] endLines
-    reducedLines = fromMaybe contLines $ dropAlreadyChecked endLines' contLines
-    alreadyCheckedLines :: [ByteString]
-    alreadyCheckedLines =  take (length contLines - length reducedLines) contLines
-    {- TODO: At the lines split, do the recoinnassance of last checked stuff
-     - 1. Hash file paths and check if file already got checked once
-     - 2. Check file hash. If the same hash, don't do anything.
-     - 3. Try to find the location that was already checked. (Last 4 entries?)
+  let contLines = C8.lines content
+      endLines' = fromMaybe [] endLines
+      reducedLines =
+        fromMaybe contLines $ dropAlreadyChecked endLines' contLines
+      alreadyCheckedLines :: [ByteString]
+      alreadyCheckedLines =
+        take (length contLines - length reducedLines) contLines
+    {- TODO:
      - 4. Provide --force option
      -}
-    func = cleanText reducedLines (St.salt vault) (St.secrets vault)
-    (resLines, rCode) = runState func CSuccess
+      func = cleanText reducedLines (St.salt vault) (St.secrets vault)
+      (resLines, rCode) = runState func CSuccess
   file <- openFile filepath WriteMode
   _ <- installHandler keyboardSignal (Catch $ hFlush file) Nothing
-  C8.hPutStr file $ C8.unlines ( alreadyCheckedLines ++ resLines )
+  C8.hPutStr file $ C8.unlines (alreadyCheckedLines ++ resLines)
   hClose file
-  if rCode == CSuccess then do
-    storeEndlines filepath resLines --TODO: Maybe do split here for memory usage ?
-    pure ()
-  else do
-    pure ()
+  if rCode == CSuccess
+    then do
+      storeEndlines filepath resLines --TODO: Maybe do split here for memory usage ?
+      pure ()
+    else do
+      pure ()
   pure rCode
 
-cleanText :: [ByteString] -> ByteString -> [ByteString] -> State CleanResult [ByteString]
+cleanText ::
+     [ByteString]
+  -> ByteString
+  -> [ByteString]
+  -> State CleanResult [ByteString]
 cleanText text salt secrets = do
   case text of
     [] -> do
       put CSuccess
       return []
+    (line:rest) ->
+      let (resLine, rCode) =
+            runState (cleanLine (C8.words line) salt secrets) CSuccess
+       in if rCode == CSuccess
+            then do
+              res <- cleanText rest salt secrets
+              return (C8.unwords resLine : res)
+            else do
+              put rCode
+              return []
 
-    (line : rest) ->
-      let
-        (resLine, rCode) = runState (cleanLine (C8.words line) salt secrets) CSuccess
-      in
-        if rCode == CSuccess then do
-          res <- cleanText rest salt secrets
-          return ( C8.unwords resLine : res )
-        else do
-          put rCode
-          return []
-
-cleanLine :: [ByteString] -> ByteString -> [ByteString] -> State CleanResult [ByteString]
+cleanLine ::
+     [ByteString]
+  -> ByteString
+  -> [ByteString]
+  -> State CleanResult [ByteString]
 cleanLine line salt secrets = do
   case line of
     [] -> do
       put CSuccess
       return []
-
-    (word : rest) ->
+    (word:rest) ->
       case hash salt word of
         CryptoPassed hres -> do
           put CSuccess
           res <- cleanLine rest salt secrets
           if hres `elem` secrets
             then do
-              return ( "redacted" : res )
+              return ("redacted" : res)
             else do
-              return ( word : res )
-
+              return (word : res)
         CryptoFailed _ -> do
           put $ CHashFail $ toString word
           return []
@@ -108,36 +109,35 @@ getEndlines :: FilePath -> IO (Maybe [ByteString])
 getEndlines filepath = do
   endMarkersPath <- getEndMarkersPath
   exists <- fileExist endMarkersPath
-  if not exists then
-    pure Nothing
-  else do
-    content <- C8.readFile endMarkersPath
-    let contLines = C8.lines content
-    if odd $ length contLines then do
-      C8.writeFile endMarkersPath ""
-      pure Nothing
+  if not exists
+    then pure Nothing
     else do
-      let endMarkers = map (\[x , y] -> (x, y)) $ chunksOf 2 contLines
-      case lookup (fromString filepath) endMarkers of
-        Just encLines ->
-          case decodeBase64 encLines of
-            Left _ ->
-              pure Nothing
-
-            Right endLines -> do
-              let restLines = filter (\x -> x /= (fromString filepath) && x /= encLines) contLines
-              C8.writeFile endMarkersPath $ C8.unlines restLines
-              pure $ Just $ C8.lines endLines
-
-        Nothing ->
-            pure Nothing
+      content <- C8.readFile endMarkersPath
+      let contLines = C8.lines content
+      if odd $ length contLines
+        then do
+          C8.writeFile endMarkersPath ""
+          pure Nothing
+        else do
+          let endMarkers = map (\[x, y] -> (x, y)) $ chunksOf 2 contLines
+          case lookup (fromString filepath) endMarkers of
+            Just encLines ->
+              case decodeBase64 encLines of
+                Left _ -> pure Nothing
+                Right endLines -> do
+                  let restLines =
+                        filter
+                          (\x -> x /= fromString filepath && x /= encLines)
+                          contLines
+                  C8.writeFile endMarkersPath $ C8.unlines restLines
+                  pure $ Just $ C8.lines endLines
+            Nothing -> pure Nothing
 
 -- Parse this thing into a structure
 storeEndlines :: FilePath -> [ByteString] -> IO ()
 storeEndlines filepath content = do
-  let
-    endLines = encodeBase64' . C8.unlines $ lastN' 3 content
-    endMarker = [fromString filepath, endLines]
+  let endLines = encodeBase64' . C8.unlines $ lastN' 3 content
+      endMarker = [fromString filepath, endLines]
   endMarkersPath <- getEndMarkersPath
   C8.appendFile endMarkersPath $ C8.unlines endMarker
   pure ()
@@ -149,22 +149,15 @@ getEndMarkersPath = do
 
 dropAlreadyChecked :: [ByteString] -> [ByteString] -> Maybe [ByteString]
 dropAlreadyChecked endLines lines =
-  if length endLines < 3 then
-    Just lines
-  else
-    let
-      reducedLines = dropWhile (/= ( endLines !! 0 )) lines
-    in
-      if length reducedLines /= 0 then
-        if reducedLines !! 1 == endLines !! 1 then
-          if reducedLines !! 2 == endLines !! 2 then
-            Just $ drop 3 reducedLines
-          else
-            dropAlreadyChecked reducedLines lines
-        else
-          dropAlreadyChecked reducedLines lines
-      else
-        Nothing
+  if length endLines < 3
+    then Just lines
+    else let reducedLines = dropWhile (/= head endLines) lines
+          in if null reducedLines
+               then if reducedLines !! 1 == endLines !! 1 &&
+                       reducedLines !! 2 == endLines !! 2
+                      then Just $ drop 3 reducedLines
+                      else dropAlreadyChecked reducedLines lines
+               else Nothing
 
 --TODO: Mem consumption test
 lastN' :: Int -> [a] -> [a]

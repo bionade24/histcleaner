@@ -1,14 +1,14 @@
-{-# language OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Main where
 
+import Control.Monad
 import qualified Data.ByteString.Char8 as C8
-import Data.Traversable
+import Data.Foldable
 import System.Exit
 
 import HistCleaner
 import OptParse
-
 
 main :: IO ()
 main = do
@@ -27,30 +27,37 @@ main = do
     CleanFile args -> do
       case args of
         Files f -> do
-          _ <- for f (\c -> cleanFile c >>= handleCleaner)
+          for_ f $ cleanFile >=> handleCleaner
           exitSuccess
 
 handleSecretStorage :: SStorageResult -> IO ()
 handleSecretStorage result = do
   case result of
-    SSuccess -> do exitSuccess
-    SHashFail -> do putStrLn "Hashing of the input failed"
-    StoreFail msg -> do putStrLn $ "Storing the secret failed:\n" <> msg
-    NoMatch -> do putStrLn "No matching secret in the database"
-    RemoveFail msg -> do putStrLn $ "Removing the secret failed:\n" <> msg
+    SSuccess -> do
+      exitSuccess
+    SHashFail -> do
+      putStrLn "Hashing of the input failed"
+    StoreFail msg -> do
+      putStrLn $ "Storing the secret failed:\n" <> msg
+    NoMatch -> do
+      putStrLn "No matching secret in the database"
+    RemoveFail msg -> do
+      putStrLn $ "Removing the secret failed:\n" <> msg
   exitFailure
 
 handleCleaner :: CleanResult -> IO ()
 handleCleaner result = do
   case result of
-    CSuccess -> do pure ()
-    CHashFail input -> do putStrLn $ "Hashing of the input failed: " <> input
+    CSuccess -> do
+      pure ()
+    CHashFail input -> do
+      putStrLn $ "Hashing of the input failed: " <> input
     -- TODO: Catch Read/Write errors and use this
-    ReadFail path -> do putStrLn $ "Reading of file failed: " <> path
-    WriteFail path -> do putStrLn $ "Writing of file failed: " <> path
+    ReadFail path -> do
+      putStrLn $ "Reading of file failed: " <> path
+    WriteFail path -> do
+      putStrLn $ "Writing of file failed: " <> path
   if result /= CSuccess
-    then
-      exitFailure
+    then exitFailure
     else do
       pure ()
-

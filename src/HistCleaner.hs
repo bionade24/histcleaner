@@ -4,8 +4,7 @@ module HistCleaner
   , SStorageResult(..)
   , cleanFile
   , CleanResult(..)
-  )
-  where
+  ) where
 
 import HistCleaner.Cleaner
 import HistCleaner.SecretStorage

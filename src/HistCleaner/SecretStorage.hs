@@ -1,5 +1,5 @@
-{-# language ScopedTypeVariables #-}
-{-# language OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module HistCleaner.SecretStorage where
 
@@ -13,7 +13,6 @@ import System.Environment.XDG.BaseDir
 
 import qualified HistCleaner.Hash as Hash
 
-
 data SStorageResult
   = SSuccess
   | SHashFail
@@ -26,14 +25,14 @@ storeSecret :: ByteString -> IO SStorageResult
 storeSecret secret = do
   vault <- getSecrets
   case Hash.hash (salt vault) secret of
-    CryptoFailed _ ->
-      pure SHashFail
+    CryptoFailed _ -> pure SHashFail
     CryptoPassed res ->
-      if res `elem` secrets vault then do
-        pure $ StoreFail "Secret already stored."
-      else do
-        storeLine res
-        pure SSuccess
+      if res `elem` secrets vault
+        then do
+          pure $ StoreFail "Secret already stored."
+        else do
+          storeLine res
+          pure SSuccess
 
 -- Storing config & hashes
 storeLine :: ByteString -> IO ()
@@ -45,8 +44,7 @@ removeSecret :: ByteString -> IO SStorageResult
 removeSecret secret = do
   vault <- getSecrets
   case Hash.hash (salt vault) secret of
-    CryptoFailed _ ->
-      pure SHashFail
+    CryptoFailed _ -> pure SHashFail
     CryptoPassed res -> do
       removeLine res
 
@@ -54,10 +52,9 @@ removeLine :: ByteString -> IO SStorageResult
 removeLine str = do
   filepath <- getSecretsFilepath
   contents <- C8.readFile filepath
-  let
-    string = encodeBase64' str
-    strings = C8.lines contents
-    res = filter (\x -> string /= x) strings
+  let string = encodeBase64' str
+      strings = C8.lines contents
+      res = filter (string /=) strings
   if length res == length strings
     then do
       pure $ RemoveFail "Secret not found in vault."
@@ -65,12 +62,12 @@ removeLine str = do
       C8.writeFile filepath $ C8.unlines res
       pure SSuccess
 
-data Vault
-  = Vault
+data Vault =
+  Vault
     { salt :: ByteString
     , secrets :: [ByteString]
     }
-  deriving Show
+  deriving (Show)
 
 getSecrets :: IO Vault
 getSecrets = do
@@ -80,45 +77,34 @@ getSecrets = do
     then do
       createDirectory configFolder
       pure ()
-  else
-    pure ()
+    else pure ()
   filepath <- getSecretsFilepath
   catch
-    ( do
-      contents <- C8.readFile filepath
-      let
-        (encSalt : _ : encRest) = C8.lines contents
-        rest = decodeSecrets encRest
-      case decodeBase64 encSalt of
-        Left _ ->
-          error "Decoding error"
-        Right salt ->
-          pure $ Vault salt rest
-    )
-    ( \(e :: IOException) -> do
-        salt <- Hash.newSalt
-        C8.writeFile filepath $ encodeBase64' salt
-          <> "\n----------------------------------\n"
-        pure $ Vault salt []
-    )
+    (do contents <- C8.readFile filepath
+        let (encSalt:_:encRest) = C8.lines contents
+            rest = decodeSecrets encRest
+        case decodeBase64 encSalt of
+          Left _ -> error "Decoding error"
+          Right salt -> pure $ Vault salt rest)
+    (\(e :: IOException) -> do
+       salt <- Hash.newSalt
+       C8.writeFile filepath $
+         encodeBase64' salt <> "\n----------------------------------\n"
+       pure $ Vault salt [])
 
 -- Inverts the list while decoding it
 decodeSecrets :: [ByteString] -> [ByteString]
 decodeSecrets input =
   case input of
     [] -> []
-
-    (first : rest) ->
+    (first:rest) ->
       case decodeBase64 first of
         Left _ -> do
           error "Decoding error"
-        Right b ->
-          ( b : decodeSecrets rest)
+        Right b -> (b : decodeSecrets rest)
 
 getConfigFolder :: IO FilePath
-getConfigFolder =
-  getUserConfigDir "histcleaner"
+getConfigFolder = getUserConfigDir "histcleaner"
 
 getSecretsFilepath :: IO FilePath
-getSecretsFilepath =
-  getUserConfigFile "histcleaner" "secrets"
+getSecretsFilepath = getUserConfigFile "histcleaner" "secrets"
