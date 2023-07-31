@@ -17,7 +17,7 @@ spec =
 
 reduceListToUnchecked :: Spec
 reduceListToUnchecked = do
-  describe "reduceListToUnchecked" $ do
+  describe "reduce list to unchecked lines" $ do
     it "endMarker exists" $
       shouldBe (dropAlreadyChecked ["1", "2", "3"] ["1", "2", "3", "4", "5"]) $
       Just ["4", "5"]

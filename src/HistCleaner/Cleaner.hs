@@ -153,11 +153,11 @@ dropAlreadyChecked endLines lines =
     then Just lines
     else let reducedLines = dropWhile (/= head endLines) lines
           in if null reducedLines
-               then if reducedLines !! 1 == endLines !! 1 &&
+               then Nothing
+               else if reducedLines !! 1 == endLines !! 1 &&
                        reducedLines !! 2 == endLines !! 2
                       then Just $ drop 3 reducedLines
                       else dropAlreadyChecked reducedLines lines
-               else Nothing
 
 --TODO: Mem consumption test
 lastN' :: Int -> [a] -> [a]
