@@ -8,10 +8,12 @@ import Crypto.Error (CryptoFailable(..))
 import Data.ByteString (ByteString)
 import Data.ByteString.Base64
 import qualified Data.ByteString.Char8 as C8
-import System.Directory
+import System.Directory (doesDirectoryExist)
+import System.Posix.Directory (createDirectory)
 import System.Environment.XDG.BaseDir
 
 import qualified HistCleaner.Hash as Hash
+import System.Posix (ownerModes)
 
 data SStorageResult
   = SSuccess
@@ -75,7 +77,7 @@ getSecrets = do
   exists <- doesDirectoryExist configFolder
   if not exists
     then do
-      createDirectory configFolder
+      createDirectory configFolder ownerModes
       pure ()
     else pure ()
   filepath <- getSecretsFilepath
