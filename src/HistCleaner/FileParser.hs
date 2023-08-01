@@ -6,7 +6,6 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as C8
 import Data.List
 
-
 data FileType
   = Generic -- TODO: shell history with access time?
   | Lesshst
@@ -31,14 +30,12 @@ parseLine fileType line =
     Lesshst -> parseLesshst line
     _ -> error $ show fileType <> "currently unsupported"
 
-
 parseLesshst :: ByteString -> ParsedLine
-parseLesshst line = --TODOODOAO: Wie skippen wir für die Punkt-linien?
-    if C8.isPrefixOf "." line
-      then
-        Skip
-    else
-      Simple $ C8.words $ C8.dropWhile (== '\"') line
+parseLesshst line --TODOODOAO: Wie skippen wir für die Punkt-linien?
+ =
+  if C8.isPrefixOf "." line
+    then Skip
+    else Simple $ C8.words $ C8.dropWhile (== '\"') line
 
 reFormatLine :: FileType -> [ByteString] -> ByteString
 reFormatLine fileType line =
@@ -48,6 +45,4 @@ reFormatLine fileType line =
     _ -> error $ show fileType <> "currently unsupported"
 
 reFormatLesshst :: [ByteString] -> ByteString
-reFormatLesshst line =
-  C8.unwords (C8.pack ['"'] : line)
-
+reFormatLesshst line = C8.unwords (C8.pack ['"'] : line)

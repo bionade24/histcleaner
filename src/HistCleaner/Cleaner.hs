@@ -33,11 +33,11 @@ cleanFile filepath = do
   vault <- St.getSecrets
   content <- C8.readFile filepath --TODO: Don't read twice? Use vault?
   endLines <- getEndlines filepath
-  let
-      contLines = C8.lines content
+  let contLines = C8.lines content
       fileType = getFileType filepath
       reducedLines =
-        fromMaybe contLines $ dropAlreadyChecked (fromMaybe [] endLines) $ C8.lines content
+        fromMaybe contLines $
+        dropAlreadyChecked (fromMaybe [] endLines) $ C8.lines content
       -- Seperate already checked Lines to reinsert later
       alreadyCheckedLines =
         take (length contLines - length reducedLines) contLines
@@ -75,9 +75,7 @@ cleanText fileType text salt secrets = do
           res <- cleanText fileType rest salt secrets
           return (rawLine : res)
         Simple line ->
-          let
-            (resLine, rCode) =
-                runState (cleanLine line salt secrets) CSuccess
+          let (resLine, rCode) = runState (cleanLine line salt secrets) CSuccess
            in if rCode == CSuccess
                 then do
                   res <- cleanText fileType rest salt secrets

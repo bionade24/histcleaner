@@ -9,8 +9,8 @@ import Data.ByteString (ByteString)
 import Data.ByteString.Base64
 import qualified Data.ByteString.Char8 as C8
 import System.Directory (doesDirectoryExist)
-import System.Posix.Directory (createDirectory)
 import System.Environment.XDG.BaseDir
+import System.Posix.Directory (createDirectory)
 
 import qualified HistCleaner.Hash as Hash
 import System.Posix (ownerModes)
