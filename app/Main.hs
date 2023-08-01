@@ -2,10 +2,12 @@
 
 module Main where
 
+import Control.Exception
 import Control.Monad
 import qualified Data.ByteString.Char8 as C8
 import Data.Foldable
 import System.Exit
+import System.IO
 
 import HistCleaner
 import OptParse
@@ -18,11 +20,11 @@ main = do
       case subcmd of
         AddSecret -> do
           putStrLn "Enter the secret you want to add: "
-          secret <- C8.getLine
+          secret <- withEcho False C8.getLine
           storeSecret secret >>= handleSecretStorage
         RemoveSecret -> do
           putStrLn "Enter the secret you want to remove: "
-          secret <- C8.getLine
+          secret <- withEcho False C8.getLine
           removeSecret secret >>= handleSecretStorage
     CleanFile args -> do
       case args of
@@ -61,3 +63,8 @@ handleCleaner result = do
     then exitFailure
     else do
       pure ()
+
+withEcho :: Bool -> IO a -> IO a
+withEcho echo action = do
+  old <- hGetEcho stdin
+  bracket_ (hSetEcho stdin echo) (hSetEcho stdin old) action
