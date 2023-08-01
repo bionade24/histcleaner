@@ -11,6 +11,7 @@ import Data.ByteString.UTF8 (fromString, toString)
 import Data.Foldable
 import Data.List.Split
 import Data.Maybe
+import System.Directory
 import System.FilePath
 import System.IO
 import System.Posix.Files
@@ -46,10 +47,13 @@ cleanFile filepath = do
      -}
       func = cleanText fileType reducedLines (St.salt vault) (St.secrets vault)
       (resLines, rCode) = runState func CSuccess
-  file <- openFile filepath WriteMode
+      tempFilepath = "." <> filepath <> ".tmp"
+  file <- openFile tempFilepath WriteMode
   _ <- installHandler keyboardSignal (Catch $ hFlush file) Nothing
   C8.hPutStr file $ C8.unlines (alreadyCheckedLines ++ resLines)
   hClose file
+  copyFile tempFilepath filepath
+  removeFile tempFilepath
   if rCode == CSuccess
     then do
       storeEndlines filepath resLines --TODO: Maybe do split here for memory usage ?
