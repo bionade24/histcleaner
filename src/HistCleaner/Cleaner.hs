@@ -29,22 +29,21 @@ data CleanResult
   | WriteFail FilePath
   deriving (Eq, Show)
 
-cleanFile :: FilePath -> IO CleanResult
-cleanFile filepath = do
+cleanFile :: Bool -> FilePath -> IO CleanResult
+cleanFile force filepath = do
   vault <- St.getSecrets
   content <- C8.readFile filepath --TODO: Don't read twice? Use vault?
   endLines <- getEndlines filepath
   let contLines = C8.lines content
       fileType = getFileType filepath
+      -- Skip already checked lines if force is false and endLines exists
       reducedLines =
+        if' force contLines $
         fromMaybe contLines $
         dropAlreadyChecked (fromMaybe [] endLines) $ C8.lines content
       -- Seperate already checked Lines to reinsert later
       alreadyCheckedLines =
-        take (length contLines - length reducedLines) contLines
-    {- TODO:
-     - 4. Provide --force option
-     -}
+        if' force [] $ take (length contLines - length reducedLines) contLines
       func = cleanText fileType reducedLines (St.salt vault) (St.secrets vault)
       (resLines, rCode) = runState func CSuccess
       tempFilepath = "." <> filepath <> ".tmp"
@@ -171,3 +170,7 @@ dropAlreadyChecked endLines allLines =
 --TODO: Mem consumption test
 lastN' :: Int -> [a] -> [a]
 lastN' n xs = foldl' (const . drop 1) xs (drop n xs)
+
+if' :: Bool -> a -> a -> a
+if' True x _ = x
+if' False _ y = y

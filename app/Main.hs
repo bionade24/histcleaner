@@ -26,10 +26,10 @@ main = do
           putStrLn "Enter the secret you want to remove: "
           secret <- withEcho False C8.getLine
           removeSecret secret >>= handleSecretStorage
-    CleanFile args -> do
+    CleanFile opts args -> do
       case args of
         Files f -> do
-          for_ f $ cleanFile >=> handleCleaner
+          for_ f $ (cleanFile $ force opts) >=> handleCleaner
           exitSuccess
 
 handleSecretStorage :: SStorageResult -> IO ()

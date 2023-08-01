@@ -1,6 +1,7 @@
 module OptParse
   ( Command(..)
   , SecretsCmd(..)
+  , CleanOptions(..)
   , Files(..)
   , parse
   ) where
@@ -10,7 +11,7 @@ import Options.Applicative
 -- | Model
 data Command
   = ManageSecrets SecretsCmd
-  | CleanFile Files
+  | CleanFile CleanOptions Files
   deriving (Show)
 
 data SecretsCmd
@@ -18,19 +19,24 @@ data SecretsCmd
   | RemoveSecret
   deriving (Show)
 
+data CleanOptions =
+  CleanOptions
+    { force :: Bool
+    }
+  deriving (Show)
+
 newtype Files =
   Files [FilePath]
   deriving (Show)
 
 parse :: IO Command
-parse = execParser opts
+parse = execParser cmds
 
-opts :: ParserInfo Command
-opts =
+cmds :: ParserInfo Command
+cmds =
   info
     (pCommand <**> helper)
-    (fullDesc <>
-     header "histcleaner" <> progDesc "remove your secrets from a file")
+    (fullDesc <> header "histcleaner" <> progDesc "sanitize a file from secrets")
 
 pCommand :: Parser Command
 pCommand =
@@ -56,7 +62,14 @@ pManageSecrets =
        (info (helper <*> pure RemoveSecret) (progDesc "RemoveSecret a secret")))
 
 pCleanFile :: Parser Command
-pCleanFile = CleanFile <$> pHistFile
+pCleanFile = CleanFile <$> pCleanOptions <*> pHistFile
+
+pCleanOptions :: Parser CleanOptions
+pCleanOptions =
+  CleanOptions <$>
+  switch
+    (long "force" <>
+     short 'f' <> help "Ignore known end position and check the whole file.")
 
 pHistFile :: Parser Files
 pHistFile = Files <$> parser
