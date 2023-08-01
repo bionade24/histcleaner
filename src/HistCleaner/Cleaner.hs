@@ -155,16 +155,16 @@ getEndMarkersPath = do
   pure $ configFolderPath </> "endMarkers"
 
 dropAlreadyChecked :: [ByteString] -> [ByteString] -> Maybe [ByteString]
-dropAlreadyChecked endLines lines =
+dropAlreadyChecked endLines allLines =
   if length endLines < 3
-    then Just lines
-    else let reducedLines = dropWhile (/= head endLines) lines
+    then Just allLines
+    else let reducedLines = dropWhile (/= head endLines) allLines
           in if null reducedLines
                then Nothing
                else if reducedLines !! 1 == endLines !! 1 &&
                        reducedLines !! 2 == endLines !! 2
                       then Just $ drop 3 reducedLines
-                      else dropAlreadyChecked reducedLines lines
+                      else dropAlreadyChecked reducedLines allLines
 
 --TODO: Mem consumption test
 lastN' :: Int -> [a] -> [a]
