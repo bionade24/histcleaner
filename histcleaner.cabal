@@ -2,8 +2,9 @@ cabal-version:       2.4
 
 name:                histcleaner
 version:             0.1.0.0
-synopsis:            Synopsis will appear in the hackage package listing and search
-description:         The description will appear at the top of a library
+synopsis:            Cmdline tool to to clean (history) files from secrets
+description:
+  Please see the README on GitHub at <https://github.com/bionade24/histcleaner#readme>
 homepage:            https://github.com/bionade24/histcleaner
 bug-reports:         https://github.com/bionade24/histcleaner/issues
 license:             GPL-3.0-or-later
