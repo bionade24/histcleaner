@@ -38,6 +38,7 @@ library
   exposed-modules:
     HistCleaner
       HistCleaner.Cleaner
+      HistCleaner.FileParser
       HistCleaner.Hash
       HistCleaner.SecretStorage
   -- other-modules:

@@ -7,6 +7,7 @@ import Data.ByteString (ByteString)
 import Test.Hspec
 
 import HistCleaner.Cleaner
+import HistCleaner.FileParser
 
 spec :: Spec
 spec =
@@ -35,7 +36,7 @@ cleanSecretsFromText = do
   describe "Secret test cleaned from input text" $ do
     it "example 1" $
       shouldBe
-        (runState (cleanText inLines salt secrets) CSuccess)
+        (runState (cleanText Generic inLines salt secrets) CSuccess)
         (outLines, CSuccess)
 
 inLines :: [ByteString]

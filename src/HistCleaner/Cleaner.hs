@@ -16,6 +16,7 @@ import System.IO
 import System.Posix.Files
 import System.Posix.Signals
 
+import HistCleaner.FileParser
 import HistCleaner.Hash
 import qualified HistCleaner.SecretStorage as St
 import HistCleaner.SecretStorage (getConfigFolder)
@@ -27,26 +28,23 @@ data CleanResult
   | WriteFail FilePath
   deriving (Eq, Show)
 
-{-TODO:
- - support ~/.lesshst Syntax "eintrag
- - other special cases
--}
 cleanFile :: FilePath -> IO CleanResult
 cleanFile filepath = do
   vault <- St.getSecrets
   content <- C8.readFile filepath --TODO: Don't read twice? Use vault?
   endLines <- getEndlines filepath
-  let contLines = C8.lines content
-      endLines' = fromMaybe [] endLines
+  let
+      contLines = C8.lines content
+      fileType = getFileType filepath
       reducedLines =
-        fromMaybe contLines $ dropAlreadyChecked endLines' contLines
-      alreadyCheckedLines :: [ByteString]
+        fromMaybe contLines $ dropAlreadyChecked (fromMaybe [] endLines) $ C8.lines content
+      -- Seperate already checked Lines to reinsert later
       alreadyCheckedLines =
         take (length contLines - length reducedLines) contLines
     {- TODO:
      - 4. Provide --force option
      -}
-      func = cleanText reducedLines (St.salt vault) (St.secrets vault)
+      func = cleanText fileType reducedLines (St.salt vault) (St.secrets vault)
       (resLines, rCode) = runState func CSuccess
   file <- openFile filepath WriteMode
   _ <- installHandler keyboardSignal (Catch $ hFlush file) Nothing
@@ -61,25 +59,34 @@ cleanFile filepath = do
   pure rCode
 
 cleanText ::
-     [ByteString]
+     FileType
+  -> [ByteString]
   -> ByteString
   -> [ByteString]
   -> State CleanResult [ByteString]
-cleanText text salt secrets = do
+cleanText fileType text salt secrets = do
   case text of
     [] -> do
       put CSuccess
       return []
-    (line:rest) ->
-      let (resLine, rCode) =
-            runState (cleanLine (C8.words line) salt secrets) CSuccess
-       in if rCode == CSuccess
-            then do
-              res <- cleanText rest salt secrets
-              return (C8.unwords resLine : res)
-            else do
-              put rCode
-              return []
+    (rawLine:rest) ->
+      case parseLine fileType rawLine of
+        Skip -> do
+          res <- cleanText fileType rest salt secrets
+          return (rawLine : res)
+        Simple line ->
+          let
+            (resLine, rCode) =
+                runState (cleanLine line salt secrets) CSuccess
+           in if rCode == CSuccess
+                then do
+                  res <- cleanText fileType rest salt secrets
+                  return (reFormatLine fileType resLine : res)
+                else do
+                  put rCode
+                  return []
+        Special formStr maySec ->
+          error "Parsing of special lines currently unsupported"
 
 cleanLine ::
      [ByteString]
