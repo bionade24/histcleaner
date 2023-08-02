@@ -51,16 +51,17 @@ cleanFile force filepath = do
       let func =
             cleanText fileType reducedLines (St.salt vault) (St.secrets vault)
           (resLines, rCode) = runState func CSuccess
+          linesToBeWritten = alreadyCheckedLines ++ resLines
           tempFilepath = "." <> filepath <> ".tmp"
       file <- openFile tempFilepath WriteMode
       _ <- installHandler keyboardSignal (Catch $ hFlush file) Nothing
-      C8.hPutStr file $ C8.unlines (alreadyCheckedLines ++ resLines)
+      C8.hPutStr file $ C8.unlines linesToBeWritten
       hClose file
       copyFile tempFilepath filepath
       removeFile tempFilepath
       if rCode == CSuccess
         then do
-          storeEndlines filepath prevELinesInfo resLines
+          storeEndlines filepath prevELinesInfo linesToBeWritten
           pure CSuccess
         else do
           pure rCode
