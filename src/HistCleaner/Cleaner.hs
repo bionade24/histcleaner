@@ -33,32 +33,37 @@ cleanFile :: Bool -> FilePath -> IO CleanResult
 cleanFile force filepath = do
   vault <- St.getSecrets
   content <- C8.readFile filepath --TODO: Don't read twice? Use vault?
-  prevEndLines <- getPrevEndlines filepath
+  prevELinesInfo <- getPrevEndLines filepath
   let contLines = C8.lines content
       fileType = getFileType filepath
-      -- Skip already checked lines if force is false and endLines exists
+      -- Skip already checked lines if force is false and endLines exist
       reducedLines =
         if' force contLines $
-        dropAlreadyChecked (fromMaybe [] prevEndLines) contLines
-      -- Seperate already checked Lines to reinsert later
+        dropAlreadyChecked (endLines prevELinesInfo) contLines
+      -- Seperate already checked lines to reinsert later
       alreadyCheckedLines =
         if' force [] $ take (length contLines - length reducedLines) contLines
-      func = cleanText fileType reducedLines (St.salt vault) (St.secrets vault)
-      (resLines, rCode) = runState func CSuccess
-      tempFilepath = "." <> filepath <> ".tmp"
-  file <- openFile tempFilepath WriteMode
-  _ <- installHandler keyboardSignal (Catch $ hFlush file) Nothing
-  C8.hPutStr file $ C8.unlines (alreadyCheckedLines ++ resLines)
-  hClose file
-  copyFile tempFilepath filepath
-  removeFile tempFilepath
-  if rCode == CSuccess
+  if null reducedLines
     then do
-      storeEndlines filepath resLines --TODO: Maybe do split here for memory usage ?
-      pure ()
+      putStrLn $ "All lines of " <> filepath <> " have already been checked."
+      pure CSuccess
     else do
-      pure ()
-  pure rCode
+      let func =
+            cleanText fileType reducedLines (St.salt vault) (St.secrets vault)
+          (resLines, rCode) = runState func CSuccess
+          tempFilepath = "." <> filepath <> ".tmp"
+      file <- openFile tempFilepath WriteMode
+      _ <- installHandler keyboardSignal (Catch $ hFlush file) Nothing
+      C8.hPutStr file $ C8.unlines (alreadyCheckedLines ++ resLines)
+      hClose file
+      copyFile tempFilepath filepath
+      removeFile tempFilepath
+      if rCode == CSuccess
+        then do
+          storeEndlines filepath prevELinesInfo resLines
+          pure CSuccess
+        else do
+          pure rCode
 
 cleanText ::
      FileType
@@ -112,47 +117,65 @@ cleanLine line salt secrets = do
           put $ CHashFail $ toString word
           return []
 
-getPrevEndlines :: FilePath -> IO (Maybe [ByteString])
-getPrevEndlines filepath = do
-  endMarkersPath <- getEndMarkersPath
-  exists <- fileExist endMarkersPath
+data EndLinesInfo =
+  EndLinesInfo
+    { filePath :: ByteString
+    , encodedLines :: ByteString
+    , endLines :: [ByteString]
+    }
+  deriving (Show, Eq)
+
+emptyEndLinesInfo :: EndLinesInfo
+emptyEndLinesInfo = EndLinesInfo "" "" []
+
+getPrevEndLines :: FilePath -> IO EndLinesInfo
+getPrevEndLines filepath = do
+  endInfosPath <- getEndInfosPath
+  exists <- fileExist endInfosPath
   if not exists
-    then pure Nothing
+    then pure emptyEndLinesInfo
     else do
-      content <- C8.readFile endMarkersPath
+      content <- C8.readFile endInfosPath
       let contLines = C8.lines content
       if odd $ length contLines
         then do
-          C8.writeFile endMarkersPath ""
-          pure Nothing
+          C8.writeFile endInfosPath ""
+          pure emptyEndLinesInfo
         else do
-          let endMarkers = map (\[x, y] -> (x, y)) $ chunksOf 2 contLines
-          case lookup (fromString filepath) endMarkers of
-            Just encLines ->
-              case decodeBase64 encLines of
-                Left _ -> pure Nothing
+          let endLineInfos = map (\[x, y] -> (x, y)) $ chunksOf 2 contLines
+              filePath = fromString filepath
+          case lookup filePath endLineInfos of
+            Just encodedLines ->
+              case decodeBase64 encodedLines of
+                Left _ -> pure emptyEndLinesInfo
                 Right endLines -> do
-                  let restLines =
-                        filter
-                          (\x -> x /= fromString filepath && x /= encLines)
-                          contLines
-                  C8.writeFile endMarkersPath $ C8.unlines restLines
-                  pure $ Just $ C8.lines endLines
-            Nothing -> pure Nothing
+                  pure $ EndLinesInfo filePath encodedLines $ C8.lines endLines
+            Nothing -> pure emptyEndLinesInfo
 
--- Parse this thing into a structure
-storeEndlines :: FilePath -> [ByteString] -> IO ()
-storeEndlines filepath content = do
-  let endLines = encodeBase64' . C8.unlines $ lastN' 3 content
-      endMarker = [fromString filepath, endLines]
-  endMarkersPath <- getEndMarkersPath
-  C8.appendFile endMarkersPath $ C8.unlines endMarker
-  pure ()
+storeEndlines :: FilePath -> EndLinesInfo -> [ByteString] -> IO ()
+storeEndlines filepath prevELinesInfo text = do
+  endInfosPath <- getEndInfosPath
+  let curEndLines = encodeBase64' . C8.unlines $ lastN' 3 text
+      curEndInfo = [fromString filepath, curEndLines]
+  if prevELinesInfo == emptyEndLinesInfo
+    then do
+      C8.appendFile endInfosPath $ C8.unlines curEndInfo
+    else do
+      content <- C8.readFile endInfosPath
+      let contLines = C8.lines content
+      -- Delete previous endLineInfo
+          filteredLines =
+            filter
+              (\x ->
+                 x /= filePath prevELinesInfo &&
+                 x /= encodedLines prevELinesInfo)
+              contLines
+      C8.writeFile endInfosPath $ C8.unlines $ filteredLines ++ curEndInfo
 
-getEndMarkersPath :: IO FilePath
-getEndMarkersPath = do
+getEndInfosPath :: IO FilePath
+getEndInfosPath = do
   configFolderPath <- getConfigFolder
-  pure $ configFolderPath </> "endMarkers"
+  pure $ configFolderPath </> "endInfos"
 
 dropAlreadyChecked :: [ByteString] -> [ByteString] -> [ByteString]
 dropAlreadyChecked endLines allLines =
