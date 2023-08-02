@@ -9,8 +9,8 @@ import Data.ByteString.Base64
 import qualified Data.ByteString.Char8 as C8
 import Data.ByteString.UTF8 (fromString, toString)
 import Data.Foldable
+import Data.List
 import Data.List.Split
-import Data.Maybe
 import System.Directory
 import System.FilePath
 import System.IO
@@ -52,7 +52,10 @@ cleanFile force filepath = do
             cleanText fileType reducedLines (St.salt vault) (St.secrets vault)
           (resLines, rCode) = runState func CSuccess
           linesToBeWritten = alreadyCheckedLines ++ resLines
-          tempFilepath = "." <> filepath <> ".tmp"
+          fileName = takeFileName filepath
+          tempFileName =
+            if' ("." `isPrefixOf` fileName) "" "." <> fileName <.> ".hstclntmp"
+          tempFilepath = replaceFileName filepath tempFileName
       file <- openFile tempFilepath WriteMode
       _ <- installHandler keyboardSignal (Catch $ hFlush file) Nothing
       C8.hPutStr file $ C8.unlines linesToBeWritten
