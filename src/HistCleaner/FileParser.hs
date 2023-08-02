@@ -31,8 +31,7 @@ parseLine fileType line =
     _ -> error $ show fileType <> "currently unsupported"
 
 parseLesshst :: ByteString -> ParsedLine
-parseLesshst line --TODOODOAO: Wie skippen wir für die Punkt-linien?
- =
+parseLesshst line =
   if C8.isPrefixOf "." line
     then Skip
     else Simple $ C8.words $ C8.dropWhile (== '\"') line
@@ -45,4 +44,4 @@ reFormatLine fileType line =
     _ -> error $ show fileType <> "currently unsupported"
 
 reFormatLesshst :: [ByteString] -> ByteString
-reFormatLesshst line = C8.unwords (C8.pack ['"'] : line)
+reFormatLesshst line = '"' `C8.cons` C8.unwords line
