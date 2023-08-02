@@ -33,7 +33,7 @@ cleanFile :: Bool -> FilePath -> IO CleanResult
 cleanFile force filepath = do
   vault <- St.getSecrets
   content <- C8.readFile filepath --TODO: Don't read twice? Use vault?
-  endLines <- getEndlines filepath
+  prevEndLines <- getPrevEndlines filepath
   let contLines = C8.lines content
       fileType = getFileType filepath
       -- Skip already checked lines if force is false and endLines exists
@@ -112,8 +112,8 @@ cleanLine line salt secrets = do
           put $ CHashFail $ toString word
           return []
 
-getEndlines :: FilePath -> IO (Maybe [ByteString])
-getEndlines filepath = do
+getPrevEndlines :: FilePath -> IO (Maybe [ByteString])
+getPrevEndlines filepath = do
   endMarkersPath <- getEndMarkersPath
   exists <- fileExist endMarkersPath
   if not exists
