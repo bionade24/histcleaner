@@ -39,8 +39,7 @@ cleanFile force filepath = do
       -- Skip already checked lines if force is false and endLines exists
       reducedLines =
         if' force contLines $
-        fromMaybe contLines $
-        dropAlreadyChecked (fromMaybe [] endLines) $ C8.lines content
+        dropAlreadyChecked (fromMaybe [] prevEndLines) contLines
       -- Seperate already checked Lines to reinsert later
       alreadyCheckedLines =
         if' force [] $ take (length contLines - length reducedLines) contLines
@@ -155,19 +154,16 @@ getEndMarkersPath = do
   configFolderPath <- getConfigFolder
   pure $ configFolderPath </> "endMarkers"
 
-dropAlreadyChecked :: [ByteString] -> [ByteString] -> Maybe [ByteString]
+dropAlreadyChecked :: [ByteString] -> [ByteString] -> [ByteString]
 dropAlreadyChecked endLines allLines =
-  if length endLines < 3
-    then Just allLines
+  if length allLines < 3 || length endLines < 3
+    then allLines
     else let reducedLines = dropWhile (/= head endLines) allLines
-          in if null reducedLines
-               then Nothing
-               else if reducedLines !! 1 == endLines !! 1 &&
-                       reducedLines !! 2 == endLines !! 2
-                      then Just $ drop 3 reducedLines
-                      else dropAlreadyChecked reducedLines allLines
+          in if reducedLines !! 1 == endLines !! 1 &&
+                reducedLines !! 2 == endLines !! 2
+               then drop 3 reducedLines
+               else dropAlreadyChecked endLines $ tail reducedLines
 
---TODO: Mem consumption test
 lastN' :: Int -> [a] -> [a]
 lastN' n xs = foldl' (const . drop 1) xs (drop n xs)
 

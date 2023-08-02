@@ -21,15 +21,19 @@ reduceListToUnchecked = do
   describe "reduce list to unchecked lines" $ do
     it "endMarker exists" $
       shouldBe (dropAlreadyChecked ["1", "2", "3"] ["1", "2", "3", "4", "5"]) $
-      Just ["4", "5"]
+      ["4", "5"]
     it "endMarker empty" $
       shouldBe (dropAlreadyChecked [] ["1", "2", "3", "4", "5"]) $
-      Just ["1", "2", "3", "4", "5"]
+      ["1", "2", "3", "4", "5"]
     it "everything already checked" $
       shouldBe (dropAlreadyChecked ["3", "4", "5"] ["1", "2", "3", "4", "5"]) $
-      Just []
+      []
     it "lines is shorter than endMarker" $
-      shouldBe (dropAlreadyChecked ["1", "2", "3"] []) Nothing
+      shouldBe (dropAlreadyChecked ["1", "2", "3"] []) []
+    it "first and 2nd line of endMarker appear twice" $
+      shouldBe
+        (dropAlreadyChecked ["2", "3", "4"] ["1", "2", "3", "9", "2", "3", "4"]) $
+      []
 
 cleanSecretsFromText :: Spec
 cleanSecretsFromText = do
