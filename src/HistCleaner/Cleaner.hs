@@ -32,7 +32,7 @@ data CleanResult
 cleanFile :: Bool -> FilePath -> IO CleanResult
 cleanFile force filepath = do
   vault <- St.getSecrets
-  content <- C8.readFile filepath --TODO: Don't read twice? Use vault?
+  content <- C8.readFile filepath
   prevELinesInfo <- getPrevEndLines filepath
   let contLines = C8.lines content
       fileType = getFileType filepath
