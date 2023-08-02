@@ -18,22 +18,33 @@ spec =
 
 reduceListToUnchecked :: Spec
 reduceListToUnchecked = do
-  describe "reduce list to unchecked lines" $ do
-    it "endMarker exists" $
-      shouldBe (dropAlreadyChecked ["1", "2", "3"] ["1", "2", "3", "4", "5"]) $
-      ["4", "5"]
-    it "endMarker empty" $
-      shouldBe (dropAlreadyChecked [] ["1", "2", "3", "4", "5"]) $
-      ["1", "2", "3", "4", "5"]
-    it "everything already checked" $
-      shouldBe (dropAlreadyChecked ["3", "4", "5"] ["1", "2", "3", "4", "5"]) $
-      []
-    it "lines is shorter than endMarker" $
-      shouldBe (dropAlreadyChecked ["1", "2", "3"] []) []
-    it "first and 2nd line of endMarker appear twice" $
+  describe "reduce text to unchecked lines" $ do
+    it "endLines exist" $
       shouldBe
-        (dropAlreadyChecked ["2", "3", "4"] ["1", "2", "3", "9", "2", "3", "4"]) $
-      []
+        (dropAlreadyChecked ["1", "2", "3"] ["1", "2", "3", "4", "5"])
+        ["4", "5"]
+    it "everything already checked" $
+      shouldBe (dropAlreadyChecked ["3", "4", "5"] ["1", "2", "3", "4", "5"]) []
+    it "endLines empty" $
+      shouldBe
+        (dropAlreadyChecked [] ["1", "2", "3", "4", "5"])
+        ["1", "2", "3", "4", "5"]
+    it "text is empty but endLines exist" $
+      shouldBe (dropAlreadyChecked ["1", "2", "3"] []) []
+    it "text is shorter than endLines" $
+      shouldBe (dropAlreadyChecked ["1", "2", "3"] ["1", "2"]) ["1", "2"]
+    it "first and 2nd line of endLines appear twice" $
+      shouldBe
+        (dropAlreadyChecked ["2", "3", "4"] ["1", "2", "3", "9", "2", "3", "4"])
+        []
+    it "1st and 2nd line of endLines are the last lines of the text" $
+      shouldBe
+        (dropAlreadyChecked ["3", "4", "5"] ["1", "2", "3", "4"])
+        ["1", "2", "3", "4"]
+    it "endLines not found but matches for the 1st line exist" $
+      shouldBe
+        (dropAlreadyChecked ["2", "3", "4"] ["1", "2", "3", "0", "2", "4"])
+        ["1", "2", "3", "0", "2", "4"]
 
 cleanSecretsFromText :: Spec
 cleanSecretsFromText = do

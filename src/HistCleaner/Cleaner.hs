@@ -183,10 +183,18 @@ dropAlreadyChecked endLines allLines =
   if length allLines < 3 || length endLines < 3
     then allLines
     else let reducedLines = dropWhile (/= head endLines) allLines
-          in if reducedLines !! 1 == endLines !! 1 &&
-                reducedLines !! 2 == endLines !! 2
-               then drop 3 reducedLines
-               else dropAlreadyChecked endLines $ tail reducedLines
+          in if length reducedLines < 3
+               then allLines
+               else if reducedLines !! 1 == endLines !! 1 &&
+                       reducedLines !! 2 == endLines !! 2
+                      then drop 3 reducedLines
+                      else let uncompLines = tail reducedLines
+                               furtherRedLines =
+                                 dropAlreadyChecked endLines uncompLines
+                            -- endLines not matched in recursive call
+                            in if length furtherRedLines == length uncompLines
+                                 then allLines
+                                 else furtherRedLines
 
 lastN' :: Int -> [a] -> [a]
 lastN' n xs = foldl' (const . drop 1) xs (drop n xs)
