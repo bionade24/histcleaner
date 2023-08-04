@@ -7,6 +7,8 @@ so that the tool can't leak your secrets itself.
 Those hashes are then compared to words in the file you clean and the secrets get redacted.
 The initial run may take a while, but the tool will resume at the last known location on the next run.
 
+Currently supports plain text files like your shell's histfile and `.lesshst`.
+
 ```
 $ histcleaner -h
 histcleaner
