@@ -83,11 +83,12 @@ getSecrets = do
   filepath <- getSecretsFilepath
   catch
     (do contents <- C8.readFile filepath
-        let (encSalt:_:encRest) = C8.lines contents
-            rest = decodeSecrets encRest
-        case decodeBase64 encSalt of
-          Left _ -> error "Decoding error"
-          Right salt -> pure $ Vault salt rest)
+        case C8.lines contents of
+          (encSalt:_:encRest) ->
+            case decodeBase64 encSalt of
+              Left _ -> error "Decoding error"
+              Right salt -> pure $ Vault salt $ decodeSecrets encRest
+          _ -> error "Decoding error")
     (\(e :: IOException) -> do
        salt <- Hash.newSalt
        C8.writeFile filepath $
