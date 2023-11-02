@@ -3,9 +3,10 @@
 
 module HistCleaner.SecretStorage where
 
+import Control.DeepSeq
 import Control.Exception
-import Crypto.Error (CryptoFailable(..))
 import Control.Monad
+import Crypto.Error (CryptoFailable(..))
 import Data.ByteString (ByteString)
 import Data.ByteString.Base64
 import qualified Data.ByteString.Char8 as C8
@@ -67,8 +68,8 @@ removeLine str = do
 
 data Vault =
   Vault
-    { salt :: ByteString
-    , secrets :: [ByteString]
+    { salt :: !ByteString
+    , secrets :: ![ByteString]
     }
   deriving (Show)
 
@@ -84,7 +85,8 @@ getSecrets = do
           (encSalt:_:encRest) ->
             case decodeBase64 encSalt of
               Left _ -> error "Decoding error"
-              Right salt -> pure $ Vault salt $ decodeSecrets encRest
+              -- Enforce strictness to not store undecodced and decoded values in memory
+              Right salt -> pure $! Vault salt $!! decodeSecrets encRest
           _ -> error "Decoding error")
     (\(e :: IOException) -> do
        salt <- Hash.newSalt

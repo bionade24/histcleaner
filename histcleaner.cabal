@@ -28,6 +28,7 @@ library
     , base64
     , bytestring
     , cryptonite
+    , deepseq
     , directory
     , filepath
 --    , memory
