@@ -5,6 +5,7 @@ module HistCleaner.SecretStorage where
 
 import Control.Exception
 import Crypto.Error (CryptoFailable(..))
+import Control.Monad
 import Data.ByteString (ByteString)
 import Data.ByteString.Base64
 import qualified Data.ByteString.Char8 as C8
@@ -75,11 +76,7 @@ getSecrets :: IO Vault
 getSecrets = do
   configFolder <- getConfigFolder
   exists <- doesDirectoryExist configFolder
-  if not exists
-    then do
-      createDirectory configFolder ownerModes
-      pure ()
-    else pure ()
+  unless exists $ createDirectory configFolder ownerModes
   filepath <- getSecretsFilepath
   catch
     (do contents <- C8.readFile filepath
