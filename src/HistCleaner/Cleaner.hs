@@ -6,6 +6,7 @@ import Control.Monad.State.Lazy
 import Crypto.Error (CryptoFailable(..))
 import Data.ByteString (ByteString)
 import Data.ByteString.Base64
+import Data.Base64.Types (extractBase64)
 import qualified Data.ByteString.Char8 as C8
 import Data.ByteString.UTF8 (fromString, toString)
 import Data.Foldable
@@ -150,7 +151,7 @@ getPrevEndLines filepath = do
               filePath = fromString filepath
           case lookup filePath endLineInfos of
             Just encodedLines ->
-              case decodeBase64 encodedLines of
+              case decodeBase64Untyped encodedLines of
                 Left _ -> pure emptyEndLinesInfo
                 Right endLines -> do
                   pure $ EndLinesInfo filePath encodedLines $ C8.lines endLines
@@ -159,7 +160,7 @@ getPrevEndLines filepath = do
 storeEndlines :: FilePath -> EndLinesInfo -> [ByteString] -> IO ()
 storeEndlines filepath prevELinesInfo text = do
   endInfosPath <- getEndInfosPath
-  let curEndLines = encodeBase64' . C8.unlines $ lastN' 3 text
+  let curEndLines = extractBase64 $ encodeBase64' . C8.unlines $ lastN' 3 text
       curEndInfo = [fromString filepath, curEndLines]
   if prevELinesInfo == emptyEndLinesInfo
     then do

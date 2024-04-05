@@ -9,6 +9,7 @@ import Control.Monad
 import Crypto.Error (CryptoFailable(..))
 import Data.ByteString (ByteString)
 import Data.ByteString.Base64
+import Data.Base64.Types (extractBase64)
 import qualified Data.ByteString.Char8 as C8
 import System.Directory (doesDirectoryExist)
 import System.Environment.XDG.BaseDir
@@ -42,7 +43,7 @@ storeSecret secret = do
 storeLine :: ByteString -> IO ()
 storeLine str = do
   filepath <- getSecretsFilepath
-  C8.appendFile filepath $ encodeBase64' str <> "\n"
+  C8.appendFile filepath $ extractBase64 (encodeBase64' str) <> "\n"
 
 removeSecret :: ByteString -> IO SStorageResult
 removeSecret secret = do
@@ -56,7 +57,7 @@ removeLine :: ByteString -> IO SStorageResult
 removeLine str = do
   filepath <- getSecretsFilepath
   contents <- C8.readFile filepath
-  let string = encodeBase64' str
+  let string = extractBase64 $ encodeBase64' str
       strings = C8.lines contents
       res = filter (string /=) strings
   if length res == length strings
@@ -83,7 +84,7 @@ getSecrets = do
     (do contents <- C8.readFile filepath
         case C8.lines contents of
           (encSalt:_:encRest) ->
-            case decodeBase64 encSalt of
+            case decodeBase64Untyped encSalt of
               Left _ -> error "Decoding error"
               -- Enforce strictness to not store undecodced and decoded values in memory
               Right salt -> pure $! Vault salt $!! decodeSecrets encRest
@@ -91,7 +92,7 @@ getSecrets = do
     (\(e :: IOException) -> do
        salt <- Hash.newSalt
        C8.writeFile filepath $
-         encodeBase64' salt <> "\n----------------------------------\n"
+         extractBase64 (encodeBase64' salt) <> "\n----------------------------------\n"
        pure $ Vault salt [])
 
 -- Inverts the list while decoding it
@@ -100,7 +101,7 @@ decodeSecrets input =
   case input of
     [] -> []
     (first:rest) ->
-      case decodeBase64 first of
+      case decodeBase64Untyped first of
         Left _ -> do
           error "Decoding error"
         Right b -> (b : decodeSecrets rest)
