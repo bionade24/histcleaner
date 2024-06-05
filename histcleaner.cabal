@@ -24,7 +24,8 @@ library
   import: common-settings
   hs-source-dirs: src
   build-depends:
-      base
+      array
+    , base
     , base64
     , bytestring
     , cryptonite
