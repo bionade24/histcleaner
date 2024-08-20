@@ -4,9 +4,9 @@ module HistCleaner.Cleaner where
 
 import Control.Monad.State.Lazy
 import Crypto.Error (CryptoFailable(..))
+import Data.Base64.Types (extractBase64)
 import Data.ByteString (ByteString)
 import Data.ByteString.Base64
-import Data.Base64.Types (extractBase64)
 import qualified Data.ByteString.Char8 as C8
 import Data.ByteString.UTF8 (fromString, toString)
 import Data.Foldable
@@ -18,10 +18,10 @@ import System.IO
 import System.Posix.Files
 import System.Posix.Signals
 
+import HistCleaner.Config
 import HistCleaner.FileParser
 import HistCleaner.Hash
 import qualified HistCleaner.SecretStorage as St
-import HistCleaner.SecretStorage (getConfigFolder)
 
 data CleanResult
   = CSuccess
@@ -176,11 +176,6 @@ storeEndlines filepath prevELinesInfo text = do
                  x /= encodedLines prevELinesInfo)
               contLines
       C8.writeFile endInfosPath $ C8.unlines $ filteredLines ++ curEndInfo
-
-getEndInfosPath :: IO FilePath
-getEndInfosPath = do
-  configFolderPath <- getConfigFolder
-  pure $ configFolderPath </> "endInfos"
 
 dropAlreadyChecked :: [ByteString] -> [ByteString] -> [ByteString]
 dropAlreadyChecked endLines allLines =

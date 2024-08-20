@@ -7,16 +7,16 @@ import Control.DeepSeq
 import Control.Exception
 import Control.Monad
 import Crypto.Error (CryptoFailable(..))
+import Data.Base64.Types (extractBase64)
 import Data.ByteString (ByteString)
 import Data.ByteString.Base64
-import Data.Base64.Types (extractBase64)
 import qualified Data.ByteString.Char8 as C8
-import System.Directory (doesDirectoryExist)
-import System.Environment.XDG.BaseDir
+import System.Directory (doesDirectoryExist, removeFile)
+import System.Posix (ownerModes)
 import System.Posix.Directory (createDirectory)
 
+import HistCleaner.Config
 import qualified HistCleaner.Hash as Hash
-import System.Posix (ownerModes)
 
 data SStorageResult
   = SSuccess
@@ -37,6 +37,7 @@ storeSecret secret = do
           pure $ StoreFail "Secret already stored."
         else do
           storeLine res
+          getEndInfosPath >>= removeFile
           pure SSuccess
 
 -- Storing config & hashes
@@ -92,7 +93,8 @@ getSecrets = do
     (\(e :: IOException) -> do
        salt <- Hash.newSalt
        C8.writeFile filepath $
-         extractBase64 (encodeBase64' salt) <> "\n----------------------------------\n"
+         extractBase64 (encodeBase64' salt) <>
+         "\n----------------------------------\n"
        pure $ Vault salt [])
 
 -- Inverts the list while decoding it
@@ -105,9 +107,3 @@ decodeSecrets input =
         Left _ -> do
           error "Decoding error"
         Right b -> (b : decodeSecrets rest)
-
-getConfigFolder :: IO FilePath
-getConfigFolder = getUserConfigDir "histcleaner"
-
-getSecretsFilepath :: IO FilePath
-getSecretsFilepath = getUserConfigFile "histcleaner" "secrets"
