@@ -1,7 +1,7 @@
 cabal-version:       2.4
 
 name:                histcleaner
-version:             0.1.0.0
+version:             0.1.1
 synopsis:            Cmdline tool to to clean (history) files from secrets
 description:
   Please see the README on GitHub at <https://github.com/bionade24/histcleaner#readme>
