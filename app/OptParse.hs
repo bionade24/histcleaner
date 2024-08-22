@@ -1,6 +1,7 @@
 module OptParse
   ( Command(..)
   , SecretsCmd(..)
+  , SecretsOptions(..)
   , CleanOptions(..)
   , Files(..)
   , parse
@@ -10,13 +11,19 @@ import Options.Applicative
 
 -- | Model
 data Command
-  = ManageSecrets SecretsCmd
+  = ManageSecrets SecretsOptions SecretsCmd
   | CleanFile CleanOptions Files
   deriving (Show)
 
 data SecretsCmd
   = AddSecret
   | RemoveSecret
+  deriving (Show)
+
+data SecretsOptions =
+  SecretsOptions
+    { keep :: Bool
+    }
   deriving (Show)
 
 data CleanOptions =
@@ -52,14 +59,17 @@ pCommand =
 
 pManageSecrets :: Parser Command
 pManageSecrets =
-  ManageSecrets <$>
+  ManageSecrets <$> pSecretsOptions <*>
   subparser
-    (command
-       "add"
-       (info (helper <*> pure AddSecret) (progDesc "AddSecret a secret")) <>
+    (command "add" (info (helper <*> pure AddSecret) (progDesc "Add a secret")) <>
      command
        "remove"
-       (info (helper <*> pure RemoveSecret) (progDesc "RemoveSecret a secret")))
+       (info (helper <*> pure RemoveSecret) (progDesc "Remove a secret")))
+
+pSecretsOptions :: Parser SecretsOptions
+pSecretsOptions =
+  SecretsOptions <$>
+  switch (long "keep" <> short 'k' <> help "Always keep remembered endLines.")
 
 pCleanFile :: Parser Command
 pCleanFile = CleanFile <$> pCleanOptions <*> pHistFile
@@ -69,7 +79,8 @@ pCleanOptions =
   CleanOptions <$>
   switch
     (long "force" <>
-     short 'f' <> help "Ignore known end position and check the whole file.")
+     short 'f' <>
+     help "Ignore known previous end position and check the whole file.")
 
 pHistFile :: Parser Files
 pHistFile = Files <$> parser

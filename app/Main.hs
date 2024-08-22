@@ -16,12 +16,12 @@ main :: IO ()
 main = do
   command <- parse
   case command of
-    ManageSecrets subcmd ->
+    ManageSecrets opts subcmd ->
       case subcmd of
         AddSecret -> do
           putStrLn "Enter the secret you want to add: "
           secret <- withEcho False C8.getLine
-          storeSecret secret >>= handleSecretStorage
+          storeSecret secret (keep opts) >>= handleSecretStorage
         RemoveSecret -> do
           putStrLn "Enter the secret you want to remove: "
           secret <- withEcho False C8.getLine

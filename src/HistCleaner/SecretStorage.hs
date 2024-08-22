@@ -26,8 +26,8 @@ data SStorageResult
   | RemoveFail String
   deriving (Show)
 
-storeSecret :: ByteString -> IO SStorageResult
-storeSecret secret = do
+storeSecret :: ByteString -> Bool -> IO SStorageResult
+storeSecret secret keepStoredEndlines = do
   vault <- getSecrets
   case Hash.hash (salt vault) secret of
     CryptoFailed _ -> pure SHashFail
@@ -37,7 +37,7 @@ storeSecret secret = do
           pure $ StoreFail "Secret already stored."
         else do
           storeLine res
-          getEndInfosPath >>= removeFile
+          unless keepStoredEndlines $ getEndInfosPath >>= removeFile
           pure SSuccess
 
 -- Storing config & hashes
