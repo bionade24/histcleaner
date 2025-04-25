@@ -11,7 +11,7 @@ import Data.Base64.Types (extractBase64)
 import Data.ByteString (ByteString)
 import Data.ByteString.Base64
 import qualified Data.ByteString.Char8 as C8
-import System.Directory (doesDirectoryExist, removeFile)
+import System.Directory (doesDirectoryExist, doesFileExist, removeFile)
 import System.Posix (ownerModes)
 import System.Posix.Directory (createDirectory)
 
@@ -37,7 +37,7 @@ storeSecret secret keepStoredEndlines = do
           pure $ StoreFail "Secret already stored."
         else do
           storeLine res
-          unless keepStoredEndlines $ getEndInfosPath >>= removeFile
+          unless keepStoredEndlines $ getEndInfosPath >>= doesFileExist >>= \fileExists -> when fileExists $ removeFile =<< getEndInfosPath
           pure SSuccess
 
 -- Storing config & hashes
